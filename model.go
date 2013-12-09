@@ -16,7 +16,15 @@ type Model struct {
 	Config
 }
 
-func (m Model) Find(q Query) interface{} {
+func (m Model) Find(i interface{}) interface{} {
+	return m.FindByQuery(i.(Query))
+}
+
+func (m Model) FindOne(i interface{}) interface{} {
+	return m.FindByQuery(i.(Query))
+}
+
+func (m Model) FindByQuery(q Query) interface{} {
 	query, valList := m.BuildQuery(q)
 	fmt.Println(query)
 	
@@ -69,12 +77,17 @@ func (m Model) ColumnNames() []string {
 	numColumns := structType.NumField()
 
 	columnNames := make([]string, numColumns)
+	fieldCount := 0
 		
 	for i := 0; i < numColumns; i++ {
-		columnNames[i] = structType.Field(i).Name
+		field := structType.Field(i)
+		if !field.Anonymous {
+			columnNames[fieldCount] = field.Name
+			fieldCount++
+		}
 	}
 
-	return columnNames
+	return columnNames[:fieldCount]
 }
 
 func (m Model) DataMap() (map[string]interface{}) {
