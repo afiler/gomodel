@@ -6,9 +6,9 @@ import (
 	"bytes"
 )
 
-type Helper struct {}
+type Record struct {}
 
-func (h Helper) MapObj(obj interface{}) (map[string]interface{}) {
+func (r Record) MapObj(obj interface{}) (map[string]interface{}) {
 	dataMap := make(map[string]interface{})
 
 	structVal := reflect.ValueOf(obj).Elem()
@@ -22,10 +22,10 @@ func (h Helper) MapObj(obj interface{}) (map[string]interface{}) {
 	return dataMap
 }
 
-func (h Helper) StringObj(obj interface{}) string {
+func (r Record) StringObj(obj interface{}) string {
 	var buffer bytes.Buffer
 
-	for k, v := range h.MapObj(obj) {
+	for k, v := range r.MapObj(obj) {
 		buffer.WriteString(fmt.Sprint("[", k, "] ", v, "\n"))
 	}
 	

@@ -17,11 +17,28 @@ type Model struct {
 }
 
 func (m Model) Find(i interface{}) interface{} {
-	return m.FindByQuery(i.(Query))
+	switch i := i.(type) {
+	default:
+		panic(fmt.Sprintf("Unexpected argument type to Find: %T", i))
+	case string:
+		return m.FindByString(i)
+	case []interface{}:
+		return m.FindBy(i)
+	case Query:
+		return m.FindByQuery(i)
+	}
 }
 
 func (m Model) FindOne(i interface{}) interface{} {
 	return m.FindByQuery(i.(Query))
+}
+
+func (m Model) FindBy(q Query) interface{} {
+	return Record{}
+}
+
+func (m Model) FindByString(q Query) interface{} {
+	return Record{}
 }
 
 func (m Model) FindByQuery(q Query) interface{} {
@@ -34,7 +51,6 @@ func (m Model) FindByQuery(q Query) interface{} {
 
 	rows, err := db.Query(query, valList...)
 	return m.loadRows(rows)
-	// fmt.Println(m)
 }
 
 func (m Model) loadRows(rows *sql.Rows) interface{} {
@@ -47,11 +63,13 @@ func (m Model) loadRows(rows *sql.Rows) interface{} {
 func (m Model) loadRow(row *sql.Rows, columns []string) interface{} {
 	valuePointers := make([]interface{}, len(columns))
 	
-	obj := reflect.New(reflect.TypeOf(m.Prototype)).Elem()
+	t := reflect.TypeOf(m.Prototype)
+	obj := reflect.New(t).Elem()
+	v := reflect.ValueOf(m.Prototype)
 	
 	for i, colName := range columns {
-		colValue := reflect.ValueOf(m.Prototype).FieldByName(colName)
-		valuePointers[i] = reflect.New(colValue.Type()).Interface()
+		field := v.FieldByName(colName)
+		valuePointers[i] = reflect.New(field.Type()).Interface()
 	}
 
 	row.Scan(valuePointers...)
@@ -93,7 +111,6 @@ func (m Model) ColumnNames() []string {
 func (m Model) DataMap() (map[string]interface{}) {
 	dataMap := make(map[string]interface{})
 
-	//structType := reflect.TypeOf(m.Data)
 	structVal := reflect.ValueOf(m.Data).Elem()
 	structType := structVal.Type()
 	numField := structType.NumField()
