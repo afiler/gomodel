@@ -8,7 +8,8 @@ type Trademark struct {
 	Agency string
 	Serial int
 	Mark string
-	TrademarkClasses string
+	Owner string
+	DesignCodes string `column:"design_codes"`
 	Record
 }
 ```
@@ -27,12 +28,13 @@ func TrademarkModel(config Config) Model {
 }
 ```
 The model keeps configuration parameters and holds a prototype struct to be
-copied when constructing records retrieved from the database.
+copied when constructing records retrieved from the database. The Data field
+may or may not go away.
 
 ### Mixing in String() capability from Record
 ```
 func (tm Trademark) String() string {
-	return tm.StringObj(&m)
+	return tm.StringObj(&tm)
 }
 ```
 

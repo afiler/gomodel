@@ -16,7 +16,7 @@ type Model struct {
 	Config
 }
 
-func (m Model) Find(i interface{}) interface{} {
+func (m *Model) Find(i interface{}) interface{} {
 	switch i := i.(type) {
 	default:
 		panic(fmt.Sprintf("Unexpected argument type to Find: %T", i))
@@ -29,19 +29,19 @@ func (m Model) Find(i interface{}) interface{} {
 	}
 }
 
-func (m Model) FindOne(i interface{}) interface{} {
+func (m *Model) FindOne(i interface{}) interface{} {
 	return m.FindByQuery(i.(Query))
 }
 
-func (m Model) FindBy(q Query) interface{} {
+func (m *Model) FindBy(q Query) interface{} {
 	return Record{}
 }
 
-func (m Model) FindByString(q Query) interface{} {
+func (m *Model) FindByString(q Query) interface{} {
 	return Record{}
 }
 
-func (m Model) FindByQuery(q Query) interface{} {
+func (m *Model) FindByQuery(q Query) interface{} {
 	query, valList := m.BuildQuery(q)
 	fmt.Println(query)
 	
@@ -50,22 +50,25 @@ func (m Model) FindByQuery(q Query) interface{} {
 	defer db.Close()
 
 	rows, err := db.Query(query, valList...)
+	if err != nil { panic(err) }
+
 	return m.loadRows(rows)
 }
 
-func (m Model) loadRows(rows *sql.Rows) interface{} {
+func (m *Model) loadRows(rows *sql.Rows) interface{} {
 	columns, err := rows.Columns()
 	if err != nil { panic(err) }
 	rows.Next()
 	return m.loadRow(rows, columns)
 }
 
-func (m Model) loadRow(row *sql.Rows, columns []string) interface{} {
+func (m *Model) loadRow(row *sql.Rows, columns []string) interface{} {
 	valuePointers := make([]interface{}, len(columns))
 	
 	t := reflect.TypeOf(m.Prototype)
 	obj := reflect.New(t).Elem()
 	v := reflect.ValueOf(m.Prototype)
+	fmt.Println("t: ", reflect.TypeOf(t))
 	
 	for i, colName := range columns {
 		field := v.FieldByName(colName)
@@ -80,17 +83,18 @@ func (m Model) loadRow(row *sql.Rows, columns []string) interface{} {
 		col.Set(val)
 	}
 	
+	// return obj.Interface().(t)
 	return obj.Interface()
 }
 
-func (m Model) BuildQuery(q Query) (string, []interface{}) {
+func (m *Model) BuildQuery(q Query) (string, []interface{}) {
 	columnNames := strings.Join(m.ColumnNames(), ", ")
 	where, whereVals := Where(q)
 	
-	return "select " + columnNames + " from " + m.TableName + " where " + where, whereVals
+	return "select " + columnNames + " from " + sqlIdent(m.TableName) + " where " + where, whereVals
 }
 
-func (m Model) ColumnNames() []string {
+func (m *Model) ColumnNames() []string {
 	structType := reflect.TypeOf(m.Data).Elem()
 	numColumns := structType.NumField()
 
@@ -98,9 +102,17 @@ func (m Model) ColumnNames() []string {
 	fieldCount := 0
 		
 	for i := 0; i < numColumns; i++ {
+
 		field := structType.Field(i)
 		if !field.Anonymous {
-			columnNames[fieldCount] = field.Name
+			nameFromTag := field.Tag.Get("column")
+			
+			if nameFromTag != "" {
+				columnNames[fieldCount] = sqlIdent(nameFromTag) + " as " + sqlIdent(field.Name)
+			} else {
+				columnNames[fieldCount] = sqlIdent(field.Name)
+			}
+			
 			fieldCount++
 		}
 	}
@@ -108,9 +120,15 @@ func (m Model) ColumnNames() []string {
 	return columnNames[:fieldCount]
 }
 
-func (m Model) DataMap() (map[string]interface{}) {
+func sqlIdent(identifier string) string {
+	// XXX: No built-in quoting in the go sql interface, so...
+	return "`"+identifier+"`"
+}
+
+func (m *Model) DataMap() (map[string]interface{}) {
 	dataMap := make(map[string]interface{})
 
+	//structType := reflect.TypeOf(m.Data)
 	structVal := reflect.ValueOf(m.Data).Elem()
 	structType := structVal.Type()
 	numField := structType.NumField()
@@ -133,12 +151,14 @@ func Where(q Query) (string, []interface{}) {
 	for i := 0; i < numField; i++ {
 		whereList[i] = "`" + structType.Field(i).Name + "` = ?"
 		valList[i] = structVal.Field(i).Interface()
+		
+		fmt.Println(whereList[i], " -> ", valList[i])
 	}
 
 	return strings.Join(whereList, " and "), valList
 }
 
-func (m Model) String() string {
+func (m *Model) String() string {
 	var buffer bytes.Buffer
 
 	for k, v := range m.DataMap() {
