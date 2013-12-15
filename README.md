@@ -10,19 +10,18 @@ type Trademark struct {
 	Mark string
 	Owner string
 	DesignCodes string `column:"design_codes"`
-	Record
+	Classes string
+	RecordBase `table:"marks"`
 }
 ```
-Record is provided by gomodel for semi-easy mixins of convenience methods, and
+RecordBase is provided by gomodel for semi-easy mixins of convenience methods, and
 for identifying structs that are meant to be used with gomodel's Model class.
 
 ### Defining a model for the record:
 ```
 func TrademarkModel(config Config) Model {
 	return Model {
-		Data: &Trademark{},
 		Prototype: Trademark{},
-		TableName: "trademarks",
 		Config: config,
 	}
 }
@@ -31,7 +30,7 @@ The model keeps configuration parameters and holds a prototype struct to be
 copied when constructing records retrieved from the database. The Data field
 may or may not go away.
 
-### Mixing in String() capability from Record
+### Mixing in String() capability from RecordBase
 ```
 func (tm Trademark) String() string {
 	return tm.StringObj(&tm)
