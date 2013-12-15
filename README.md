@@ -42,7 +42,7 @@ func (tm Trademark) String() string {
 ```
 config := Config { DriverName: "somedriver", DataSourceName: "someuser:somepassword@/somedb" }
 
-trademarkModel := MarkModel(config)
+trademarkModel := TrademarkModel(config)
 tm := trademarkModel.Find(struct {
 	Agency string
 	Serial int

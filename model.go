@@ -10,13 +10,13 @@ import (
 )
 
 type Model struct {
-	Data interface{}
 	Prototype interface{}
-	TableName string
 	Config
 }
 
 func (m *Model) Find(i interface{}) interface{} {
+	m.recordOptions()
+	
 	switch i := i.(type) {
 	default:
 		panic(fmt.Sprintf("Unexpected argument type to Find: %T", i))
@@ -29,19 +29,19 @@ func (m *Model) Find(i interface{}) interface{} {
 	}
 }
 
-func (m *Model) FindOne(i interface{}) interface{} {
+func (m *Model) FindOne(i interface{}) Record {
 	return m.FindByQuery(i.(Query))
 }
 
-func (m *Model) FindBy(q Query) interface{} {
-	return Record{}
+func (m *Model) FindBy(q Query) Record {
+	return RecordBase{}
 }
 
-func (m *Model) FindByString(q Query) interface{} {
-	return Record{}
+func (m *Model) FindByString(q Query) Record {
+	return RecordBase{}
 }
 
-func (m *Model) FindByQuery(q Query) interface{} {
+func (m *Model) FindByQuery(q Query) Record {
 	query, valList := m.BuildQuery(q)
 	fmt.Println(query)
 	
@@ -55,14 +55,14 @@ func (m *Model) FindByQuery(q Query) interface{} {
 	return m.loadRows(rows)
 }
 
-func (m *Model) loadRows(rows *sql.Rows) interface{} {
+func (m *Model) loadRows(rows *sql.Rows) Record {
 	columns, err := rows.Columns()
 	if err != nil { panic(err) }
 	rows.Next()
 	return m.loadRow(rows, columns)
 }
 
-func (m *Model) loadRow(row *sql.Rows, columns []string) interface{} {
+func (m *Model) loadRow(row *sql.Rows, columns []string) Record {
 	valuePointers := make([]interface{}, len(columns))
 	
 	t := reflect.TypeOf(m.Prototype)
@@ -82,20 +82,36 @@ func (m *Model) loadRow(row *sql.Rows, columns []string) interface{} {
 		col := obj.FieldByName(colName)
 		col.Set(val)
 	}
-	
-	// return obj.Interface().(t)
-	return obj.Interface()
+
+	return obj.Interface().(Record)
 }
 
 func (m *Model) BuildQuery(q Query) (string, []interface{}) {
 	columnNames := strings.Join(m.ColumnNames(), ", ")
 	where, whereVals := Where(q)
 	
-	return "select " + columnNames + " from " + sqlIdent(m.TableName) + " where " + where, whereVals
+	return "select " + columnNames + " from " + sqlIdent(m.TableName()) + " where " + where, whereVals
+}
+
+func (m *Model) TableName() string {
+ 	return m.recordOptions().Get("table")
+}
+
+func (m *Model) recordOptions() *reflect.StructTag {
+	structType := reflect.TypeOf(m.Prototype)
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		
+		if field.Anonymous && field.Name == "RecordBase" {
+			return &field.Tag
+		}
+	}
+	
+	return nil
 }
 
 func (m *Model) ColumnNames() []string {
-	structType := reflect.TypeOf(m.Data).Elem()
+	structType := reflect.TypeOf(m.Prototype)
 	numColumns := structType.NumField()
 
 	columnNames := make([]string, numColumns)
@@ -129,7 +145,7 @@ func (m *Model) DataMap() (map[string]interface{}) {
 	dataMap := make(map[string]interface{})
 
 	//structType := reflect.TypeOf(m.Data)
-	structVal := reflect.ValueOf(m.Data).Elem()
+	structVal := reflect.ValueOf(m.Prototype)
 	structType := structVal.Type()
 	numField := structType.NumField()
 

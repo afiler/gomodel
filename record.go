@@ -6,9 +6,14 @@ import (
 	"bytes"
 )
 
-type Record struct {}
+type Record interface {
+	MapObj(interface{}) map[string]interface{}
+	StringObj(interface{}) string
+}
 
-func (r Record) MapObj(obj interface{}) (map[string]interface{}) {
+type RecordBase struct {}
+
+func (r RecordBase) MapObj(obj interface{}) map[string]interface{} {
 	dataMap := make(map[string]interface{})
 
 	structVal := reflect.ValueOf(obj).Elem()
@@ -22,7 +27,7 @@ func (r Record) MapObj(obj interface{}) (map[string]interface{}) {
 	return dataMap
 }
 
-func (r Record) StringObj(obj interface{}) string {
+func (r RecordBase) StringObj(obj interface{}) string {
 	var buffer bytes.Buffer
 
 	for k, v := range r.MapObj(obj) {
